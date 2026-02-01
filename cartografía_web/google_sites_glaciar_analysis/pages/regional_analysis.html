@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    :root {
+      --primary-blue: #0077b6;
+      --bg-light: #ffffff;
+      --text-dark: #1d1d1f;
+      --accent-gray: #f5f5f7;
+    }
+    
+    body { 
+      font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; 
+      background-color: var(--bg-light); 
+      color: var(--text-dark); 
+      margin: 0; 
+      padding: 10px; 
+    }
+    
+    .dashboard-header { 
+      text-align: center; 
+      margin-bottom: 20px; 
+      border-bottom: 1px solid #e0e0e0; 
+      padding-bottom: 10px; 
+    }
+    
+    .selector-container { 
+      text-align: center; 
+      margin-bottom: 25px; 
+    }
+    
+    select {
+      padding: 10px 15px;
+      font-size: 15px;
+      border-radius: 8px;
+      border: 1px solid #d1d1d6;
+      background: white;
+      color: var(--text-dark);
+      cursor: pointer;
+      outline: none;
+      transition: all 0.2s ease;
+    }
+    
+    select:hover { 
+      border-color: var(--primary-blue);
+      background-color: #f0f7ff;
+    }
+
+    .map-frame {
+      display: none;
+      background: #ffffff;
+      border: 1px solid #efefef;
+      border-radius: 12px;
+      padding: 10px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+      animation: fadeIn 0.4s ease-out;
+    }
+
+    .active { display: block; }
+
+    .analysis-box {
+      margin-top: 15px;
+      padding: 15px;
+      background: #f8f9fa;
+      border-left: 4px solid var(--primary-blue);
+      font-size: 14px;
+      line-height: 1.6;
+      color: #333;
+    }
+
+    @keyframes fadeIn { 
+      from { opacity: 0; transform: translateY(5px); } 
+      to { opacity: 1; transform: translateY(0); } 
+    }
+  </style>
+</head>
+<body>
+
+  <div class="dashboard-header">
+    <h2 style="color: var(--primary-blue);">📊 Monitoreo Regional de Retroceso Glaciar</h2>
+  </div>
+
+  <div class="selector-container">
+    <label for="glacier-map-select" style="margin-right: 10px; font-weight: 500;">Seleccionar Región:</label>
+    <select id="glacier-map-select" onchange="updateDashboard()">
+      <option value="andes">Andes Centrales (América del Sur)</option>
+      <option value="himalaya">Himalaya (Asia)</option>
+      <option value="alpes">Alpes (Europa)</option>
+    </select>
+  </div>
+
+  <div id="andes" class="map-frame active">
+    <iframe title="Reducción de glaciares en Latinoamérica" src="https://datawrapper.dwcdn.net/z1V4i/6/" scrolling="no" frameborder="0" style="width: 100%; border: none;" height="756"></iframe>
+    <div class="analysis-box">
+      <strong>Análisis Regional:</strong> Los glaciares de los Andes muestran una vulnerabilidad extrema, especialmente en Perú (Pastoruri) con un retroceso cercano al 50%. El Perito Moreno destaca como una anomalía de relativa estabilidad.
+    </div>
+  </div>
+
+  <div id="himalaya" class="map-frame">
+    <iframe title="Reducción de glaciares en Asia" src="https://datawrapper.dwcdn.net/SxKOG/2/" scrolling="no" frameborder="0" style="width: 100%; border: none;" height="663"></iframe>
+    <div class="analysis-box">
+      <strong>Análisis Regional:</strong> El "Tercer Polo" presenta un derretimiento que amenaza la seguridad hídrica de más de mil millones de personas. Se observa la "Anomalía del Karakórum" en zonas de alta altitud.
+    </div>
+  </div>
+
+  <div id="alpes" class="map-frame">
+    <iframe title="Reducción glaciar en Europa" src="https://datawrapper.dwcdn.net/n3fA3/1/" scrolling="no" frameborder="0" style="width: 100%; border: none;" height="665"></iframe>
+    <div class="analysis-box">
+      <strong>Análisis Regional:</strong> Debido a su menor altitud media y latitud, los glaciares alpinos experimentan la desaparición más acelerada por década en el hemisferio norte.
+    </div>
+  </div>
+
+  <script>
+    function updateDashboard() {
+      const selectedValue = document.getElementById('glacier-map-select').value;
+      const allFrames = document.querySelectorAll('.map-frame');
+      allFrames.forEach(frame => frame.classList.remove('active'));
+      document.getElementById(selectedValue).classList.add('active');
+    }
+
+    window.addEventListener("message", function(a) {
+      if (void 0 !== a.data["datawrapper-height"]) {
+        var e = document.querySelectorAll("iframe");
+        for (var t in a.data["datawrapper-height"])
+          for (var r, i = 0; r = e[i]; i++)
+            if (r.contentWindow === a.source) {
+              r.style.height = a.data["datawrapper-height"][t] + "px";
+            }
+      }
+    });
+  </script>
+
+</body>
+</html>

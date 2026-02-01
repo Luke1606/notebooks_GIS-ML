@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <title>Lab 1 - ArcGIS</title>
+
+  <link rel="stylesheet" href="https://js.arcgis.com/4.28/esri/themes/light/main.css" />
+  <script src="https://js.arcgis.com/4.28/"></script>
+
+  <style>
+    html, body, #viewDiv { padding: 0; margin: 0; height: 100%; width: 100%; }
+    #titleDiv {
+      background: white; padding: 10px; border-radius: 5px;
+      font-family: sans-serif; font-weight: bold; font-size: 14px;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.3);
+    }
+  </style>
+</head>
+<body>
+  <div id="titleDiv">Lab 1: Cartografía web con ArcGIS SDK</div>
+  <div id="viewDiv"></div>
+
+  <script>
+    require([
+      "esri/Map", 
+      "esri/views/MapView", 
+      "esri/layers/FeatureLayer", 
+      "esri/widgets/LayerList",
+      "esri/widgets/Search",
+      "esri/widgets/BasemapToggle"
+    ], (Map, MapView, FeatureLayer, LayerList, Search, BasemapToggle) => {
+
+      const poiLayer = new FeatureLayer({
+        url: "https://services-uswest2.arcgis.com/l69S97YpAb9Z79Vv/arcgis/rest/services/OpenStreetMap_Points_of_Interest_for_North_America/FeatureServer/0",
+        title: "Puntos de Interés (OSM)",
+        definitionExpression: "amenity = 'restaurant' OR amenity = 'hospital'",
+        visible: true
+      });
+
+      const bordersLayer = new FeatureLayer({
+        url: "https://services.arcgis.com/P3ePLMYs2RVChkJx/arcgis/rest/services/World_Countries_(Generalized)/FeatureServer/0",
+        title: "Fronteras Mundiales",
+        visible: true
+      });
+
+      const map = new Map({
+        basemap: "hybrid", 
+        layers: [bordersLayer, poiLayer]
+      });
+
+      const view = new MapView({
+        container: "viewDiv",
+        map: map,
+        center: [-74.006, 40.712],
+        zoom: 12
+      });
+
+      view.when(() => {
+        view.ui.add("titleDiv", "top-right");
+
+        const searchWidget = new Search({ view: view });
+        view.ui.add(searchWidget, "top-left");
+
+        const layerList = new LayerList({ view: view });
+        view.ui.add(layerList, { position: "top-right", index: 1 });
+
+        const basemapToggle = new BasemapToggle({
+          view: view,
+          nextBasemap: "osm"
+        });
+        view.ui.add(basemapToggle, "bottom-right");
+      });
+    });
+  </script>
+</body>
+</html>

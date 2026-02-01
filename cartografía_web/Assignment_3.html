@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>EuroOdyssey 2026 | El Viaje de tu Vida</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        :root { 
+            --accent: #ff3e3e; 
+            --dark: #1a1a1a; 
+            --glass: rgba(255, 255, 255, 0.9); 
+        }
+        body { 
+            margin: 0; 
+            display: flex; 
+            font-family: 'Segoe UI', 
+            Roboto, sans-serif; 
+            background: var(--dark); 
+            overflow: hidden; 
+        }
+        
+        #tour-panel {
+            width: 380px; 
+            height: 100vh; 
+            overflow-y: auto;
+            background: white; 
+            z-index: 1000; 
+            box-shadow: 5px 0 15px rgba(0,0,0,0.5);
+        }
+        #map { 
+            flex-grow: 1; 
+            height: 100vh; 
+            filter: saturate(1.1); 
+        }
+
+        .info-header { 
+            padding: 25px; 
+            background: var(--dark); 
+            color: white; 
+            border-bottom: 4px solid var(--accent); }
+        .info-header h1 { 
+            margin: 0; 
+            font-size: 24px; 
+            letter-spacing: -1px; 
+        }
+
+        .tour-step {
+            padding: 15px; 
+            border-bottom: 1px solid #eee; 
+            cursor: pointer;
+            transition: all 0.3s ease; 
+            display: flex; 
+            flex-direction: column;
+        }
+        .tour-step:hover { 
+            background: #fff5f5; 
+            border-left: 6px solid var(--accent); 
+        }
+        .tour-step img { 
+            width: 100%; 
+            height: 160px; 
+            object-fit: cover; 
+            border-radius: 8px; 
+            margin-top: 10px; 
+            background: #333;
+        }
+        .tour-step h3 { 
+            margin: 0; 
+            font-size: 16px; 
+            color: var(--dark); 
+        }
+        .tour-step p { 
+            font-size: 12px; 
+            color: #666; 
+            margin: 5px 0; 
+        }
+
+        .custom-popup .leaflet-popup-content-wrapper {
+            background: var(--dark); 
+            color: #fff; 
+            border-radius: 12px; 
+            padding: 0; 
+            overflow: hidden;
+        }
+        .popup-img { 
+            width: 100%; 
+            height: 130px; 
+            object-fit: cover; 
+            display: block; 
+        }
+        .popup-text { 
+            padding: 12px;
+        }
+        .dest-title { 
+            color: var(--accent); 
+            font-weight: bold; 
+            font-size: 15px; 
+            display: block; 
+        }
+
+        .legend {
+            padding: 10px; 
+            background: white; 
+            line-height: 18px; 
+            color: #333;
+            border-radius: 5px; 
+            box-shadow: 0 0 15px rgba(0,0,0,0.2);
+        }
+        .legend i { 
+            width: 14px; 
+            height: 14px; 
+            float: left; 
+            margin-right: 8px; 
+            opacity: 0.7; 
+            border-radius: 50%; 
+        }
+    </style>
+</head>
+<body>
+
+    <div id="tour-panel">
+        <div class="info-header">
+            <h1>EURO-ODYSSEY 2026</h1>
+            <p style="font-size: 12px; opacity: 0.8;">
+                <b>Explorador:</b> Luis Alberto Hernández Roselló
+            </p>
+            <p style="font-size: 11px;">
+                Haz clic en un destino para viajar virtualmente.
+            </p>
+        </div>
+        <div id="steps-container"></div>
+    </div>
+
+    <div id="map"></div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        var map = L.map('map', { zoomControl: false }).setView([52.0, 10.0], 5);
+
+        var voyager = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png').addTo(map);
+        var satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}');
+
+        var places = [
+            { 
+                name: "Amager Bakke (CopenHill)", 
+                coordinates: [12.624, 55.688], 
+                cat: "Tech", description: "Planta de energía con pista de esquí en Dinamarca.", 
+                url: "https://www.ubm-development.com/magazin/wp-content/uploads/2020/10/CopenHill-0-2048x1152.jpg",
+            },
+            { 
+                name: "Øresund Bridge", 
+                coordinates: [12.820, 55.570], 
+                cat: "Tech", 
+                description: "El puente que conecta Dinamarca y Suecia.", 
+                url: "https://upload.wikimedia.org/wikipedia/commons/thumb/0/01/%C3%98resund_Bridge_from_the_air_in_September_2015.jpg/960px-%C3%98resund_Bridge_from_the_air_in_September_2015.jpg"
+            },
+            { 
+                name: "Trolltunga", 
+                coordinates: [6.740, 60.124], 
+                cat: "Nature", 
+                description: "La formación rocosa más famosa de Noruega.", 
+                url: "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b6/Trolltunga_2017.jpg/960px-Trolltunga_2017.jpg"
+            },
+            { 
+                name: "Geirangerfjord", 
+                coordinates: [7.20, 62.10], 
+                cat: "Nature", 
+                description: "Fiordos profundos y cascadas majestuosas.", 
+                url: "https://res.cloudinary.com/fjordtours/image/upload/w_auto/dpr_auto/c_fill/f_auto/q_auto/c_limit,w_3840/v1/norway/places-to-visit/fjords/geirangerfjord/fjord-panorama?_a=BAVAZGB00"
+            },
+            { 
+                name: "Joulupukin pajakylä (Santa Claus Village)", 
+                coordinates: [25.847445944175075, 66.54428806818596], 
+                cat: "Turism", 
+                description: "Parque temático en las cercanías de Rovaniemi, en la provincia finlandesa de Laponia.", 
+                url: "https://santaclausvillage.info/wp-content/uploads/2023/06/hero-winter-2048x1100.jpg"
+            },
+            { 
+                name: "Markthal Róterdam", 
+                coordinates: [4.487, 51.920], 
+                cat: "Food", 
+                description: "Mercado icónico con arquitectura futurista.", 
+                url: "https://api.mvrdv.com/media/uploads/project/115/9054dc48-49e5-4530-a387-166eeefbc60d.jpg?width=1920"
+            },
+            { 
+                name: "Atomium", 
+                coordinates: [4.341, 50.895], 
+                cat: "Arch", 
+                description: "Estructura de átomos gigantes en Bruselas.", 
+                url: "https://upload.wikimedia.org/wikipedia/commons/thumb/c/cf/Brussels_-_Atomium_2022.jpg/960px-Brussels_-_Atomium_2022.jpg"
+            },
+            { 
+                name: "Hallstatt", 
+                coordinates: [13.64, 47.56], 
+                cat: "Arch", 
+                description: "El pueblo de sal junto al lago alpino.", 
+                url: "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b0/Hallstatt_-_Zentrum_.JPG/1920px-Hallstatt_-_Zentrum_.JPG"
+            },
+            { 
+                name: "CERN", 
+                coordinates: [6.055, 46.233], 
+                cat: "Tech", 
+                description: "El Gran Colisionador de Hadrones en Suiza.", 
+                url: "https://cdn.britannica.com/76/100076-050-696FA9C8/magnet-Compact-Muon-Solenoid-Large-Hadron-Collider-2007.jpg"
+            },
+            { 
+                name: "Jungfraujoch", 
+                coordinates: [7.98, 46.54], 
+                cat: "Nature", 
+                description: "La cima de Europa a través del ferrocarril.", 
+                url: "https://www.zuerich.com/sites/default/files/styles/1920_1152_focal_scale_crop/public/image/2024/web_zuerich_jungfraujoch_1280x960_51189.jpg?h=2024-02-19T10:49:30+01:00"
+            },
+            { 
+                name: "Blue Lagoon", 
+                coordinates: [-22.44, 63.88], 
+                cat: "Nature", 
+                description: "Aguas termales geotérmicas en Islandia.", 
+                url: "https://images.ctfassets.net/w65k7w0nsb8q/2qjnNNMzd8OphtnqBW7RNK/0cad153a0ffd54b212de1668704210f2/DJI_0348__6_.jpg?w=2048&q=75&fm=webp"
+            },
+            { 
+                name: "Guggenheim Bilbao", 
+                coordinates: [-2.934, 43.266], 
+                cat: "Arch", 
+                description: "Museo de arte moderno de titanio.", 
+                url: "https://cms.guggenheim-bilbao.eus/uploads/2021/03/2-1.jpg"
+            },
+            { 
+                name: "Lindt Home of Chocolate", 
+                coordinates: [8.525, 47.322], 
+                cat: "Food", 
+                description: "La fuente de chocolate más grande en Zúrich.", 
+                url: "https://archello.com/thumbs/images/2020/09/18/atelier-br--ckner-lindt-home-of-chocolate-shops-archello.1600447303.8826.jpg?fit=crop&w=1260&h=840"
+            },
+            { 
+                name: "Keukenhof", 
+                coordinates: [4.54, 52.27], 
+                cat: "Nature", 
+                description: "El jardín de tulipanes más grande de Europa.", 
+                url: "https://cdn.getyourguide.com/image/format=auto,fit=crop,gravity=center,quality=60,width=1920,dpr=1/tour_img/f6dd3990ff9894c75bc25548669e9c5d158509dd00a2c6f1b9762650d9ea6a40.jpeg"
+            },
+            { 
+                name: "Under the North Sea: Snøhetta", 
+                coordinates: [7.05, 58.03], 
+                cat: "Food", 
+                description: "Restaurante sumergido en el Mar del Norte.", 
+                url: "https://media.yatzer.com/p1_under_lindesnes_norway_snohetta_yatzer-1400x933.jpg"
+            },
+            { 
+                name: "Neuschwanstein", 
+                coordinates: [10.74, 47.55],
+                cat: "Arch", 
+                description: "El castillo de cuento del Rey Loco.", 
+                url: "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f8/Schloss_Neuschwanstein_2013.jpg/960px-Schloss_Neuschwanstein_2013.jpg"
+            },
+            { 
+                name: "The Shard", 
+                coordinates: [-0.086, 51.504], 
+                cat: "Tech", 
+                description: "Rascacielos de cristal dominando Londres.", 
+                url: "https://cdn.sanity.io/images/nxpteyfv/goguides/067bbe5c035d13d030c0f4d656ad34e1674d17bb-1600x1066.jpg"
+            },
+            { 
+                name: "Lauterbrunnen", 
+                coordinates: [7.90, 46.59], 
+                cat: "Nature", 
+                description: "Valle con 72 cascadas en los Alpes Suizos.", 
+                url: "https://www.myswissalps.com/wp-content/uploads/lauterbrunnen-wengen-train-lauterbrunnen-valley-low-2-768x512.jpg"
+            },
+            { 
+                name: "Preikestolen", 
+                coordinates: [6.188, 58.986], 
+                cat: "Nature", 
+                description: "El Púlpito: un mirador natural a 600m.", 
+                url: "https://assets.simpleviewcms.com/simpleview/image/fetch/c_fill,h_1080,w_1920/f_jpg/q_65/https://res.cloudinary.com/djew0njor/image/upload/v1712231076/Visit%20Region%20Stavanger/Providers/Stavanger%20Adventure/Preikestolen/7-Z72_1066_t95r3r.jpg?_a=BATCtdfi0"
+            },
+            { 
+                name: "Islas Lofoten", 
+                coordinates: [14.56, 68.23], 
+                cat: "Nature", 
+                description: "Belleza ártica, montañas y mar.", 
+                url: "https://content-viajes.nationalgeographic.com.es/medio/2021/10/14/la-riqueza-de-las-islas-lofoten_851ae266_1800x1238.jpg"
+            },
+            { 
+                name: "Giethoorn", 
+                coordinates: [6.07, 52.74], 
+                cat: "Relax", 
+                description: "Venecia del norte: un pueblo sin calles.", 
+                url: "https://giethoorn.com/wp-content/uploads/2025/12/giethoorn.jpg"
+            }
+        ];
+
+        var placesGeoJson = {
+            "type": "FeatureCollection",
+            "features": places.map(place => {
+                const { coordinates, ...props } = place;
+
+                return {
+                    "type": "Feature",
+                    "properties": props,
+                    "geometry": { 
+                        "type": "Point", 
+                        "coordinates": coordinates 
+                    }
+                };
+            })
+        };   
+
+        var markerLayer = L.layerGroup().addTo(map);
+        var container = document.getElementById('steps-container');
+
+        var geojsonLayer = L.geoJSON(placesGeoJson, {
+            pointToLayer: function (feature, latlng) {
+                return L.circleMarker(latlng, {
+                    radius: 9,
+                    fillColor: "#ff3e3e",
+                    color: "#fff",
+                    weight: 2,
+                    fillOpacity: 1
+                });
+            },
+            onEachFeature: function (feature, layer) {
+                const props = feature.properties;
+                const coords = feature.geometry.coordinates;
+                // Invertimos para Leaflet [lat, lng]
+                const latlng = [coords[1], coords[0]]; 
+                const index = places.findIndex(p => p.name === props.name);
+
+                const googleSearchUrl = `https://www.google.com/search?q=${encodeURIComponent(props.name)}`;
+                const popupContent = `
+                    <div class="custom-popup">
+                        <img class="popup-img" loading="lazy" src="${props.url}">
+                        <div class="popup-text">
+                            <span class="dest-title">${props.name}</span>
+                            <p style="margin:5px 0; font-size:12px; color:#ccc;">${props.description}</p>
+                        </div>
+                        <div style="padding: 0 12px 12px;">
+                            <a href="${googleSearchUrl}" target="_blank" style="color: #4285F4; text-decoration: none; font-weight: bold; font-size:12px;">
+                                Ver más en Google...
+                            </a>
+                        </div>
+                    </div>`;
+                layer.bindPopup(popupContent, { maxWidth: 260, padding: [0, 0] });
+
+                const step = document.createElement('div');
+                step.className = 'tour-step';
+                step.innerHTML = `
+                    <h3>${index + 1}. ${props.name}</h3>
+                    <p>${props.description}</p>
+                    <img loading="lazy" src="${props.url}" alt="${props.name}">
+                `;
+
+                step.onclick = function() {
+                    map.flyTo(latlng, 14, { duration: 2 });
+
+                    setTimeout(() => { layer.openPopup(); }, 2100);
+                };
+
+                container.appendChild(step);
+                markerLayer.addLayer(layer);
+            }
+        });
+
+        var routeCoords = placesGeoJson.features.map(
+            feature => [
+                feature.geometry.coordinates[1], 
+                feature.geometry.coordinates[0]
+            ]
+        );
+
+        var polyLayer = L.polyline(routeCoords, {
+            color: '#ff3e3e',
+            weight: 3,
+            dashArray: '10, 15',
+            opacity: 0.7
+        }).addTo(map);
+
+        L.control.layers(
+            { "Mapa Voyager": voyager, "Vista Satélite": satellite }, 
+            { "Destinos (GeoJSON)": markerLayer, "Ruta del Viaje": polyLayer },
+            { collapsed: false, position: 'topright' }
+        ).addTo(map);
+
+        var legend = L.control({ position: 'bottomright' });
+        legend.onAdd = function() {
+            var div = L.DomUtil.create('div', 'legend');
+            div.innerHTML = '<b>Leyenda EuroOdyssey</b><br>' +
+                            '<i style="background: #ff3e3e"></i> Destino Top<br>' +
+                            '<i style="border: 1px dashed #ff3e3e; background: transparent"></i> Ruta de Viaje';
+            return div;
+        };
+        legend.addTo(map);
+
+    </script>
+</body>
+</html>

@@ -1,0 +1,528 @@
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Merriweather:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+<style>
+    :root {
+        --color-primary: #4285F4;
+        --color-secondary: #34A853;
+        --color-warning: #FBBC05;
+        --color-error: #EA4335;
+        --color-background: #f7f7f7;
+    }
+    
+    /* MODIFICACIÓN DE ESTILO: Base Merriweather 11px */
+    .container { 
+        font-family: 'Merriweather', Georgia, serif; 
+        font-size: 11px; /* Base size */
+        max-width: 850px; 
+        margin: auto; 
+        padding: 20px; 
+        background-color: white; 
+        border-radius: 12px;
+        box-shadow: 0 10px 20px rgba(0,0,0,0.05);
+    }
+    
+    /* Aumento de tamaño para el contexto (encabezados) */
+    h2 { 
+        color: #333; 
+        border-bottom: 2px solid var(--color-primary); 
+        padding-bottom: 5px; 
+        margin-top: 25px; 
+        font-size: 1.8em; /* 1.8 * 11px = ~19.8px */
+    }
+    h3 { 
+        color: #333; 
+        border-bottom: 2px solid var(--color-primary); 
+        padding-bottom: 5px; 
+        margin-top: 25px; 
+        font-size: 1.4em; /* 1.4 * 11px = ~15.4px */
+    }
+    
+    #map { 
+        height: 500px; 
+        width: 100%; 
+        border: 1px solid #ddd; 
+        border-radius: 8px; 
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    fieldset { border: 1px solid #ccc; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
+    legend { font-weight: bold; color: var(--color-primary); padding: 0 10px; }
+    input[type="number"] { 
+        padding: 10px; 
+        margin: 5px 10px 5px 0; 
+        width: 120px; 
+        border: 1px solid #ccc; 
+        border-radius: 4px;
+        font-size: 1.1em; /* Ligeramente mayor que la base */
+    }
+    button { 
+        padding: 12px 25px; 
+        background-color: var(--color-primary); 
+        color: white; 
+        border: none; 
+        cursor: pointer; 
+        margin-top: 15px; 
+        font-weight: bold; 
+        border-radius: 8px;
+        transition: background-color 0.3s;
+        font-size: 1.1em; /* Ligeramente mayor que la base */
+    }
+    button:hover:not(:disabled) { background-color: #357ae8; }
+    button:disabled { background-color: #a0c3f7; cursor: not-allowed; }
+    .result-box { 
+        border-left: 5px solid var(--color-secondary); 
+        padding: 15px; 
+        margin-top: 15px; 
+        background-color: var(--color-background); 
+        border-radius: 8px;
+        font-size: 1.1em; /* Ligeramente mayor que la base */
+    }
+    .loading { color: var(--color-warning); font-weight: bold; }
+    .roi-info { margin-top: 10px; font-size: 1.1em; color: #555; }
+    .error-message { color: var(--color-error); font-weight: bold; }
+    .interpretation h4 { color: var(--color-secondary); margin-top: 0; }
+
+    /* Estilos para la Leyenda del Mapa */
+    .info.legend {
+        background: white;
+        padding: 6px 8px;
+        line-height: 18px;
+        color: #555;
+        border-radius: 5px;
+        box-shadow: 0 0 15px rgba(0,0,0,0.2);
+        font-size: 1.1em; /* Ligeramente mayor que la base */
+    }
+    .legend i {
+        width: 18px;
+        height: 18px;
+        float: left;
+        margin-right: 8px;
+        opacity: 0.7;
+    }
+    /* Estilo para el control de capas */
+    .leaflet-control-layers-expanded {
+        font-size: 1.1em;
+    }
+</style>
+
+<div class="container">
+    <h2>Análisis de Retroceso Glaciar</h2>
+    
+        <fieldset>
+        <legend>Definición de Tiempo</legend>
+        <label for="yearStart">Año Inicial (mayor a 1984):</label>
+        <input type="number" id="yearStart" value="2000" min="1984" max="2025">
+
+        <label for="yearEnd" style="margin-left: 20px;">Año Final (menor a 2025):</label>
+        <input type="number" id="yearEnd" value="2024" min="1984" max="2025">
+    </fieldset>
+
+        <p style="margin-top: 15px;">
+        <ol>
+            <li>Defina los Años Inicial y Final.</li>
+            <li>Haga click en "Dibujar Región de Interés (ROI)".</li>
+            <li>Haga click en dos esquinas opuestas del mapa para definir la Región de Interés (ROI).</li>
+            <li>Haga click en "Ejecutar Análisis GEE y Obtener Interpretación AI".</li>
+        </ol>
+    </p>
+    <button id="draw-button">Dibujar Región de Interés (ROI) en el Mapa</button>
+    <div id="roi-info" class="roi-info">Mapa no inicializado.</div>
+    <div id="legend-placeholder"></div>
+
+    <h3>Mapa</h3>
+    <div id="map"></div>
+
+        <button id="run-button" disabled>Ejecutar Análisis GEE y Obtener Interpretación AI</button>
+
+        <h3>Resultados del Servidor</h3>
+    <div id="glacier-metrics" class="result-box">
+        <p>Seleccione una ROI y ejecute el análisis.</p>
+    </div>
+    
+    <h3>Interpretación Automática de Gemini</h3>
+    <div id="interpretation" class="result-box interpretation">
+        <p>El análisis y la interpretación de Gemini aparecerán aquí.</p>
+    </div>
+</div>
+
+<script>
+    const BASE_API_URL = "https://visibly-abatable-lashaunda.ngrok-free.dev";
+    const ANALYSIS_ENDPOINT = `${BASE_API_URL}/analyze_glacier`;
+    const GEMINI_ENDPOINT = `${BASE_API_URL}/ask_gemini`;
+
+    let map = null;
+    let roiCoords = null;
+    let clickCount = 0;
+    let roiMarker1 = null;
+    let roiRectangle = null;
+    let isDrawing = false;
+    
+    // Capas Base y Overlays
+    let osmLayer = null;
+    let esriLayer = null; 
+    let geeLayers = {}; // Usar objeto para L.control.layers
+    
+    let legendControl = null;
+    let layerControl = null; // Nuevo control de capas
+
+    /**
+     * Elimina todas las capas de GEE y el control de capas del mapa.
+     */
+    function clearGeeLayers() {
+        if (map) {
+            Object.values(geeLayers).forEach(layer => {
+                if (map.hasLayer(layer)) {
+                    map.removeLayer(layer);
+                }
+            });
+        }
+        geeLayers = {}; // Resetear objeto de capas
+
+        if (layerControl) {
+            map.removeControl(layerControl);
+            layerControl = null;
+            // Después de eliminar, hay que re-inicializar el control sin overlays
+            addLayerControl({});
+        }
+    }
+
+    /**
+     * Crea (pero no añade al mapa) una capa de mosaicos de GEE.
+     */
+    function createGeeLayer(mapId, token, name, opacity, zIndex) {
+        // Asegurar que la URL usa HTTPS
+        let GEE_URL = `https://earthengine.googleapis.com/v1/${mapId}/tiles/{z}/{x}/{y}`;
+    
+        if (token) { 
+            GEE_URL += `?token=${token}`;
+        }
+
+
+        const layer = L.tileLayer(GEE_URL, {
+            attribution: 'Google Earth Engine - NDSI',
+            opacity: opacity, 
+            zIndex: zIndex, // Valores altos para estar encima del mapa base
+            maxZoom: 14,
+            minZoom: 5,
+        });
+
+        console.log(`Capa "${name}" creada.`);
+        console.log(layer);
+        return layer;
+    }
+
+    /**
+     * Crea y añade el control de capas al mapa (Base Maps + Overlays).
+     */
+    function addLayerControl(overlayLayers) {
+        if (layerControl) {
+            map.removeControl(layerControl);
+        }
+        
+        // Las capas base (mapas de fondo)
+        const baseMaps = {
+            "OpenStreetMap (Calles)": osmLayer,
+            "Esri World Imagery (Satélite)": esriLayer
+        };
+        
+        // Crear y añadir el control de capas al mapa
+        layerControl = L.control.layers(baseMaps, overlayLayers, {
+            collapsed: false, 
+            position: 'topright'
+        }).addTo(map);
+    }
+
+    // --- Funciones de Dibujo en Leaflet ---
+
+    function resetMapDraw() {
+        if (roiMarker1) map.removeLayer(roiMarker1);
+        if (roiRectangle) map.removeLayer(roiRectangle);
+        clickCount = 0;
+        roiCoords = null;
+        document.getElementById('roi-info').innerHTML = 'Modo de dibujo activado. Haga click en el primer punto.';
+        document.getElementById('run-button').disabled = true;
+        clearGeeLayers(); // Limpiar capas GEE y control al redibujar
+    }
+
+    function activateDrawMode() {
+        if (!map) {
+            document.getElementById('roi-info').innerHTML = '<span class="error-error">Error: El mapa no está disponible.</span>';
+            return;
+        }
+        
+        // Si el modo de dibujo está activo, el botón lo desactiva
+        if (isDrawing) {
+            map.off('click', handleMapClick);
+            isDrawing = false;
+            document.getElementById('draw-button').textContent = 'Dibujar Región de Interés (ROI) en el Mapa';
+            document.getElementById('roi-info').innerHTML = 'Modo de dibujo desactivado.';
+            return;
+        }
+
+        // Activa el modo de dibujo
+        resetMapDraw();
+        map.on('click', handleMapClick);
+        isDrawing = true;
+        document.getElementById('draw-button').textContent = 'Cancelar Dibujo';
+        document.getElementById('roi-info').innerHTML = 'Haga click en la esquina opuesta para completar la ROI.';
+    }
+
+    function handleMapClick(e) {
+        if (!isDrawing) return;
+
+        if (clickCount === 0) {
+            if (roiMarker1) map.removeLayer(roiMarker1);
+            roiMarker1 = L.marker(e.latlng, {
+                icon: L.divIcon({className: 'point-marker', html: '<div style="background-color: blue; width: 10px; height: 10px; border-radius: 50%; border: 2px solid white;"></div>', iconSize: [12, 12]})
+            }).addTo(map).bindPopup("Punto 1").openPopup();
+            roiCoords = { lat1: e.latlng.lat, lon1: e.latlng.lng };
+            clickCount = 1;
+            document.getElementById('roi-info').innerHTML = 'Haga click en la esquina opuesta para completar la ROI.';
+        } else if (clickCount === 1) {
+            roiCoords.lat2 = e.latlng.lat;
+            roiCoords.lon2 = e.latlng.lng;
+            map.off('click', handleMapClick);
+            isDrawing = false; 
+            document.getElementById('draw-button').textContent = 'Redibujar ROI';
+
+            const [minLon, maxLon] = [Math.min(roiCoords.lon1, roiCoords.lon2), Math.max(roiCoords.lon1, roiCoords.lon2)];
+            const [minLat, maxLat] = [Math.min(roiCoords.lat1, roiCoords.lat2), Math.max(roiCoords.lat1, roiCoords.lat2)];
+
+            if (roiRectangle) map.removeLayer(roiRectangle);
+            roiRectangle = L.rectangle([[minLat, minLon], [maxLat, maxLon]], {color: "#EA4335", weight: 3, fillOpacity: 0.1}).addTo(map);
+            
+            document.getElementById('roi-info').innerHTML = `ROI definida: [${minLon.toFixed(3)}, ${minLat.toFixed(3)}, ${maxLon.toFixed(3)}, ${maxLat.toFixed(3)}]`;
+            clickCount = 2;
+            document.getElementById('run-button').disabled = false;
+        }
+    }
+
+
+    // ----------------------------------------------------------------------
+    // Llamadas a la API: GEE Analysis y Gemini AI 
+    // ----------------------------------------------------------------------
+
+    async function runAnalysis() {
+        // ... (resto del código de runAnalysis es el mismo)
+        if (clickCount !== 2 || !roiCoords) {
+            document.getElementById('roi-info').innerHTML = '<span class="error-message">Error: Por favor, dibuje una ROI en el mapa.</span>';
+            return;
+        }
+
+        const yearStart = parseInt(document.getElementById('yearStart').value);
+        const yearEnd = parseInt(document.getElementById('yearEnd').value);
+        
+        const roi = [
+            Math.min(roiCoords.lon1, roiCoords.lon2),
+            Math.min(roiCoords.lat1, roiCoords.lat2),
+            Math.max(roiCoords.lon1, roiCoords.lon2),
+            Math.max(roiCoords.lat1, roiCoords.lat2)
+        ];
+
+        document.getElementById('glacier-metrics').innerHTML = '<p class="loading">1/2 Enviando solicitud al Backend GEE...</p>';
+        document.getElementById('interpretation').innerHTML = '<p class="loading">Esperando resultados...</p>';
+        document.getElementById('run-button').disabled = true; 
+        clearGeeLayers(); // Limpiar capas y control
+
+        try {
+            // PASO 1: Llamada al Análisis GEE
+            const response = await fetch(ANALYSIS_ENDPOINT, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ yearStart, yearEnd, roi }) 
+            });
+
+            const data = await response.json();
+            console.log("LOS DATOSSSSSSSSSSSSS", data);
+            if (!response.ok) {
+                throw new Error(data.details || data.error || `Error ${response.status}: Fallo en el cálculo.`);
+            }
+
+            // 1.1. Mostrar métricas
+            const metrics = {
+                area_ref: parseFloat(data.area_ref), area_comp: parseFloat(data.area_comp),
+                area_loss: parseFloat(data.area_loss), perc_loss: parseFloat(data.perc_loss),
+                rate_loss: parseFloat(data.rate_loss), yearStart: yearStart, yearEnd: yearEnd
+            };
+
+            const metricsHTML = `
+                <h4>Métricas Clave:</h4>
+                <p><strong>Área Glaciar (${metrics.yearStart}):</strong> ${metrics.area_ref.toFixed(2)} km²</p>
+                <p><strong>Área Glaciar (${metrics.yearEnd}):</strong> ${metrics.area_comp.toFixed(2)} km²</p>
+                <p><strong>Pérdida Absoluta (Retroceso):</strong> ${metrics.area_loss.toFixed(2)} km²</p>
+                <p><strong>Pérdida Porcentual:</strong> ${metrics.perc_loss.toFixed(2)} %</p>
+                <p><strong>Tasa Anual de Pérdida:</strong> ${metrics.rate_loss.toFixed(3)} km²/año</p>
+            `;
+            document.getElementById('glacier-metrics').innerHTML = metricsHTML;
+
+
+            // 1.2. Visualización en el Mapa (Crear las 3 capas GEE)
+            
+            // Capa 1: Pérdida (Retroceso) - ROJO - Z-Index 103 (Mayor)
+            if (data.map_loss && data.map_loss.map_id) {
+                const lossLayer = createGeeLayer(
+                    data.map_loss.map_id, data.map_loss.token, 
+                    'Pérdida (Retroceso) 🟥', 0.9, 103
+                );
+                geeLayers['Pérdida (Retroceso) 🟥'] = lossLayer;
+                lossLayer.addTo(map);
+            }
+
+            // Capa 2: Glaciar Final (2024) - AZUL - Z-Index 102
+            if (data.map_comp && data.map_comp.map_id) {
+                const compLayer = createGeeLayer(
+                    data.map_comp.map_id, data.map_comp.token, 
+                    `Glaciar ${yearEnd} (Nieve/Hielo) ❄️`, 0.6, 102
+                );
+                geeLayers[`Glaciar ${yearEnd} (Nieve/Hielo) ❄️`] = compLayer;
+                compLayer.addTo(map);
+            }
+
+            // Capa 3: Glaciar Inicial (2000) - CIAN - Z-Index 101
+            if (data.map_ref && data.map_ref.map_id) {
+                const refLayer = createGeeLayer(
+                    data.map_ref.map_id, data.map_ref.token, 
+                    `Glaciar ${yearStart} (Inicial) 🧊`, 0.7, 101
+                );
+                geeLayers[`Glaciar ${yearStart} (Inicial) 🧊`] = refLayer;
+                refLayer.addTo(map);
+            }
+            
+            // AÑADIR EL CONTROL DE CAPAS para permitir al usuario alternar
+            addLayerControl(geeLayers);
+
+
+            // Ajustar el zoom para ver el roi
+            if (roiRectangle) {
+                map.fitBounds(roiRectangle.getBounds());
+            }
+            
+            // 1.3. Actualizar Leyenda
+            updateMapLegend(yearStart, yearEnd);
+
+            // PASO 2: Llamada a Gemini para la Interpretación
+            document.getElementById('interpretation').innerHTML = '<p class="loading">2/2 Llamando a Gemini para generar la interpretación...</p>';
+            
+            await callGeminiInterpretation(metrics);
+
+        } catch (error) {
+            console.error('Error en el proceso GEE/Ngrok:', error);
+            document.getElementById('glacier-metrics').innerHTML = `<p class="error-message">Fallo en la conexión o el cálculo del Backend. Error: ${error.message}. Asegúrese de que el notebook de Colab esté ejecutándose y que la URL base sea correcta.</p>`;
+            document.getElementById('interpretation').innerHTML = '<p class="error-message">No se pudo generar la interpretación.</p>';
+        } finally {
+            document.getElementById('run-button').disabled = false; 
+        }
+    }
+
+    /**
+     * Llama al endpoint de Gemini para obtener una interpretación del retroceso.
+     */
+    async function callGeminiInterpretation(metrics) {
+        const prompt = `Actúa como un hidrólogo experto. Analiza los siguientes datos de retroceso glaciar en un Área de Interés (ROI) entre ${metrics.yearStart} y ${metrics.yearEnd}: 
+        - Área Inicial (${metrics.yearStart}): ${metrics.area_ref.toFixed(2)} km²
+        - Área Final (${metrics.yearEnd}): ${metrics.area_comp.toFixed(2)} km²
+        - Pérdida Absoluta (Retroceso): ${metrics.area_loss.toFixed(2)} km²
+        - Pérdida Porcentual: ${metrics.perc_loss.toFixed(2)} %
+        - Tasa Anual de Pérdida: ${metrics.rate_loss.toFixed(3)} km²/año.
+
+        Genera una interpretación en español en tres secciones usando subtítulos con negritas usando el tag strong (<strong>Impacto Ambiental</strong>, <strong>Seguridad Hídrica</strong> y <strong>Recomendaciones</strong>), explicando claramente las implicaciones de esta pérdida (o ganancia) para el ecosistema andino y la disponibilidad de agua. Sé conciso y no uses emojis.`;
+
+        try {
+            const response = await fetch(GEMINI_ENDPOINT, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ prompt: prompt })
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                const errorDetails = data.details || data.error || `Error ${response.status}: Fallo en la llamada a Gemini.`;
+                throw new Error(errorDetails);
+            }
+
+            // Muestra la respuesta de Gemini (el texto viene ya formateado)
+            document.getElementById('interpretation').innerHTML = data.response.replace(/\n/g, '<br>');
+            
+        } catch (error) {
+            console.error('Error en la llamada a Gemini:', error);
+            // Manejo específico del error de clave (código 403)
+            if (error.message.includes("403")) {
+                document.getElementById('interpretation').innerHTML = `<p class="error-message">❌ Error de Autenticación de Gemini (403). Por favor, asegúrese de que la **GEMINI_API_KEY** en el notebook de Colab esté configurada correctamente.</p>`;
+            } else {
+                document.getElementById('interpretation').innerHTML = `<p class="error-message">❌ Fallo al obtener la interpretación de Gemini. Error: ${error.message}</p>`;
+            }
+        }
+    }
+
+
+    // ----------------------------------------------------------------------
+    // Funciones de Leyenda del Mapa
+    // ----------------------------------------------------------------------
+
+    function updateMapLegend(yearStart, yearEnd) {
+        if (legendControl) {
+            map.removeControl(legendControl);
+        }
+
+        const legend = L.control({position: 'bottomright'});
+
+        legend.onAdd = function (map) {
+            const div = L.DomUtil.create('div', 'info legend');
+            // Los colores representan la simbología en GEE: Rojo (Pérdida), Azul/Cian (Glaciar)
+            div.innerHTML = `<h4>Leyenda Glaciar</h4>` +
+                `<div><i style="background:#FF0000; border: 1px solid #777;"></i> Pérdida (Retroceso)</div>` +
+                `<div><i style="background:#0000FF; border: 1px solid #777;"></i> Glaciar al ${yearEnd} (Final)</div>` + // Texto actualizado para Layer 2
+                `<div><i style="background:#00FFFF; border: 1px solid #777;"></i> Glaciar al ${yearStart} (Inicial)</div>`; // Texto actualizado para Layer 3
+            return div;
+        };
+
+        legend.addTo(map);
+        legendControl = legend;
+    }
+
+
+    // ----------------------------------------------------------------------
+    // 5. Inicialización de la Aplicación
+    // ----------------------------------------------------------------------
+
+    function initializeApp() {
+        try {
+            // Inicialización de Leaflet
+            map = L.map('map').setView([-33.0, -70.0], 9); 
+            
+            // 1. Capa Base 1 (OpenStreetMap)
+            osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors',
+                zIndex: 1 // Capa base inferior
+            });
+
+            // 2. Capa Base 2 (Satelital)
+            esriLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                attribution: 'Tiles &copy; Esri...',
+                zIndex: 2 // Capa base por defecto
+            }); 
+            
+            // Añadir la capa satelital por defecto
+            esriLayer.addTo(map);
+
+            // Inicializar el control de capas (vacío por ahora)
+            addLayerControl({});
+
+            map.invalidateSize();    
+
+            // Asignación de Event Listeners
+            document.getElementById('draw-button').addEventListener('click', activateDrawMode);
+            document.getElementById('run-button').addEventListener('click', runAnalysis);
+            document.getElementById('roi-info').innerHTML = 'Mapa cargado. Haga click en "Dibujar Región".';
+
+        } catch(e) {
+            document.getElementById('glacier-metrics').innerHTML = `<p class="error-message">Fallo al iniciar el mapa: ${e.message}</p>`;
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', initializeApp);
+</script>
